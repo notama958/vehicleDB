@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>Vehicle DB</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+    <nav>
+        <div id="logo" role="img" aria-label="img container">
+            <a class="logo__link"><img src="./img/xxx.png" alt="logo" /></a>
+        </div>
+        <div role="navigation" class="nav">
+            <ul role="tree">
+                <li role="treeitem" tabindex="-1" aria-expanded="false"><button class="btn "
+                        id="inst-button">Instruction</button></li>
+            </ul>
+        </div>
+    </nav>
+    <div class="container">
+        <div id="noti">
+            <p></p>
+        </div>
+        <div id="instruction">
+            <h4>Instructions</h4>
+            <ul>
+                <li>
+                    Attach your JSON file, it should comply the fields standard (notification boxes will appear to
+                    report
+                    errors)
+                </li>
+                <li>
+                    When successfully load the data into database, updated database will be loaded below the search
+                    input bar
+                </li>
+                <li>
+                    Search bar can be used to filter rows (eg. volkswagen polo)
+                </li>
+            </ul>
+            <p>
+                Images/Icons taken from
+                <a href="https://github.com/Jeet009/WeatherApp"> this link</a>
+            </p>
+            <p>
+                <i className="fas fa-copyright"></i>
+                yen tran
+                <a href="https://github.com/notama958/">Github's repo</a>
+            </p>
+        </div>
+        <div id="container__uploader" role="form">
+            <h2 id="uploader__header">Upload your JSON</h2>
+            <form aria-labelledby="uploader__header" id="uploaded-form">
+                <input type="file" class="input" id="uploaded-file" name="uploaded-file" />
+                <button class="btn btn--primary" id="file-submit">Submit</button>
+            </form>
+        </div>
+        <div id="container__database">
+            <h2 id="vehicle_header">Vehicle Data</h2>
+            <div>
+                <input type="text" id="live-search" class="input" placeholder="Search .." />
+            </div>
+            <div class="table-wrapper">
+                <table id="vehicle__table" aria-labelledby="vehicle__header">
+                    <thead>
+                        <tr>
+                            <th>Year</th>
+                            <th>Make</th>
+                            <th>Model</th>
+                            <th>Rejection %</th>
+                            <th>Rejection reason #1</th>
+                            <th>Rejection reason #2</th>
+                            <th>Rejection reason #3</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    </tbody>
+                </table>
+            </div>
+            <div class="table-footer">
+                <p id="records-num"># Total records: N/A</p>
+            </div>
+            <div id="container__spinner">
+                <img alt='spinner' src="./img/icons8-spinner-50.png" id="spinner" />
+                <p style="color: 'black' ; display: 'block' ; position: 'relative'">
+                    loading...
+                </p>
+            </div>
+        </div>
+    </div>
+    <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+    <script src="script.js"></script>
+</body>
+
+</html>
