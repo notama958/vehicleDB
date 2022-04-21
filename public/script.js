@@ -11,7 +11,6 @@ const spinner=document.getElementById("container__spinner");
 spinner.style.display='none'; // initially set to hidden
 // noti
 const notification=document.getElementById("noti");
-notification.style.display='none'; // initially set to hidden
 // vehicle table
 const table=document.getElementById("vehicle__table");
 // search bar
@@ -25,9 +24,14 @@ const tableFooter=document.getElementsByClassName("table-footer")[0];
 const recordsNum=document.getElementById("records-num");
 
 // set notification timer
-const setNotiTimer=(err)=>{
+const setNotiTimer=(err,shade='danger')=>{
     notification.style.display='block';
     notification.innerHTML=err;
+
+    notification.classList.remove('success');
+    notification.classList.remove('danger');
+
+    notification.classList.add(`${shade}`);
     const timer=setTimeout(()=>{
         notification.style.display='none';
     },5000);
@@ -56,7 +60,7 @@ const popUp=(e)=>{
 
 // records counter for table
 const updateTableFooter=(num)=>{
-    recordsNum.innerHTML=`#Total record: ${num}`;
+    recordsNum.innerHTML=`#Total record(s): ${num}`;
 
 }
 
@@ -72,6 +76,7 @@ const updateTable=(newData)=>{
         // loop over each row and append to new tbody
         for(let key in element)
         {
+
             if(THEADERS.includes(key.toLowerCase()))
             {
 
@@ -82,11 +87,7 @@ const updateTable=(newData)=>{
                 }
                 else td.innerHTML=element[key];
             }
-            else {
-                setSpinner(false);
-                setNotiTimer("Incorrect format JSON");
-                break;
-            }
+
         }
         blankBody.appendChild(row);
     });
@@ -95,12 +96,13 @@ const updateTable=(newData)=>{
     table.replaceChild(blankBody,oldBody);
 
 }
-// fetch all rows in the db
+// fetch all rows in the db + update table
 const fetchAllData=async()=>{
     setSpinner(true);
     try{
         const res=await axios.get(`${URL}/api/all`);
-        const data=res.data.msg;
+        //console.log(res);
+        const data=res.data.vehicles_data;
         if(data)
         {
             updateTable(data);
@@ -125,7 +127,7 @@ const inputHandler=(e)=>{
                 const res=await axios.get(`${URL}/api?search=${keyword}`)
                 if(res.status == 200)
                 {
-                    const data=res.data.msg;
+                    const data=res.data.vehicles_data;
                     updateTable(data);
                     setSpinner(false);
                 }
@@ -158,19 +160,20 @@ const submitForm= async(e)=>{
         }
         let body = new FormData();
         body.append('uploadFile',file)
+        setSpinner(true);
         const res=await axios.post(`${URL}/api/upload`,body,config)
-
         if(res.status == 200)
         {
-            const data=await fetchAllData();
-            updateTable(data);
+            // set success noti and fetch data
+            setNotiTimer(res.data.msg,'success');
+            await fetchAllData();
         }
     }catch(err)
     {
         // set the noti box
         setSpinner(false);
+        //console.log(err.response);
         setNotiTimer(err.response.data.error);
-        console.error(err.response.data.error);
     }
 }
 

@@ -29,12 +29,10 @@ const Vehicle= new mongoose.Schema({
         type:String,
         default:""
     },
-    file_id:{
-        type: mongoose.Schema.Types.ObjectId, ref:'Upload'
+    file_md5:{
+        type:String,
     }
 
-},{
-    collation: { locale: 'en', strength: 2 }
 })
-Vehicle.index({model:'text',make:'text'},{name:"my_index",weights:{model:2,make:1}});
+Vehicle.index({model:'text',make:'text',model_year:'text',rejection_percentage:'text'},{name:"my_index",weights:{model:2,make:2,model_year:1,rejection_percentage:1}});
 module.exports=VehicleSchema=mongoose.model('Vehicle',Vehicle);

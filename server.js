@@ -8,8 +8,8 @@ const fs=require('fs');
 const path= require('path');
 // database
 const File=require('./db/models/File');
-const connectDb = require('./db/dbConfig');
 const Vehicle=require('./db/models/Vehicle');
+const connectDb = require('./db/dbConfig');
 connectDb();
 
 const app=express();
@@ -30,6 +30,7 @@ app.set("view engine","ejs");
 app.set("views",path.join(__dirname,"views"));
 app.use(express.static(path.join(__dirname, 'public')));
 
+
 const removeFile=(path)=>{
     fs.unlink(path, (err) => {
         if (err) {
@@ -38,19 +39,26 @@ const removeFile=(path)=>{
         }
     })
 }
+
+
 const saveToDB=async(vehicles, md5)=>{
     let count=0;
     for(const row in vehicles )
     {
         let obj=new Vehicle(vehicles[row]);
-        obj.file_id=md5;
-        await obj.save((err,event)=>{
-            if (err) throw 'Cannot save new document';
-        })
-        count++;
+        obj.file_md5=md5;
+        obj.rejection_percentage=vehicles[row].rejection_percentage.replace(/,/g, '.');
+        try{
+            await obj.save();
+            count++;
+        }catch(err)
+        {
+            console.error(err);
+        }
     }
     return count;
 }
+
 // file handler request
 app.post('/api/upload',async (req,res)=>{
     try{
@@ -61,15 +69,18 @@ app.post('/api/upload',async (req,res)=>{
         let file=req.files.uploadFile;
         let md5=file.md5
         let fileType=file.mimetype;
+        // check file type
         if(!fileType.includes('json'))
         {
             return res.status(400).json({error:'Sorry not a JSON file'})
         }
+        // check file duplicate
         const findOne= await File.findOne({md5:md5});
         if(findOne)
         {
             return res.status(400).json({error:'File Duplicated'})
         }
+        // add new file
         const newFile= new File({
             createdAt:Date.now(),
             md5:md5
@@ -84,7 +95,8 @@ app.post('/api/upload',async (req,res)=>{
             const content=fs.readFileSync(path.join(__dirname,"files",file.name));
             let vehicles=JSON.parse(content);
             // save file into DB
-            saveToDB(vehicles,md5).then((res)=>{
+            saveToDB(vehicles,md5).then((count)=>{
+                console.log(count);
                 // remove file from local storage
                 removeFile(path.join(__dirname,"files",file.name));
                 return res.status(200).json({msg:"file added"})
@@ -105,14 +117,7 @@ app.post('/api/upload',async (req,res)=>{
 app.get("/api/all",async(req,res)=>{
     try{
         const vehicles=await Vehicle.find({},{_id:0,__v:0}).sort({model_year:-1,make:1,model:1,rejection_percentage:1});
-        const formated=vehicles.map((e,id)=>{
-            let newObj=JSON.parse(JSON.stringify(e))
-            // console.log(newObj);
-            newObj.rejection_percentage=e.rejection_percentage.replace(/,/g, '.');
-            return newObj;
-        });
-
-        return res.status(200).json({msg:formated});
+        return res.status(200).json({vehicles_data:vehicles});
     }catch(err)
     {
         return res.status(500).json({error:err})
@@ -128,16 +133,15 @@ app.get('/api',async(req,res)=>{
         {
             const data=await Vehicle.find({$text:{$search:text}},{score:{$meta:"textScore"}},{lean:true}).sort({score:{$meta:"textScore"},model_year:-1,make:1,model:1,rejection_percentage:1}).limit(50)
             let wordNums=text.split(" ").length;
-            let filteredData=data.filter((e,id)=>e.score > wordNums); // exclude data less than 2
+            let filteredData=data.filter((e,id)=>e.score > wordNums); // exclude score less than words number
             const formatedData=filteredData.map((e,id)=>{
                 let newObj=JSON.parse(JSON.stringify(e));
                 delete newObj['_id'];
                 delete newObj['__v'];
                 delete newObj['score'];
-                newObj.rejection_percentage=e.rejection_percentage.replace(/,/g, '.');
                 return newObj
             })
-            return res.status(200).json({msg:formatedData});
+            return res.status(200).json({vehicles_data:formatedData});
         }
 
         return res.status(404).json({error:'Empty query'});
