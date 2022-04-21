@@ -3,14 +3,11 @@ const fileUpload = require('express-fileupload');
 const cors = require('cors');
 const bodyParser = require('body-parser');
 const morgan = require('morgan');
-const _ = require('lodash');
 const fs=require('fs');
 const path= require('path');
 // database
-const File=require('./db/models/File');
-const Vehicle=require('./db/models/Vehicle');
-const connectDb = require('./db/dbConfig');
-connectDb();
+const {findAllRecords,findFileByMD5,insertVehicle, insertFile, textSearch, removeJSON}=require("./db/controller");
+
 
 const app=express();
 // enable files upload
@@ -30,7 +27,6 @@ app.set("view engine","ejs");
 app.set("views",path.join(__dirname,"views"));
 app.use(express.static(path.join(__dirname, 'public')));
 
-
 const removeFile=(path)=>{
     fs.unlink(path, (err) => {
         if (err) {
@@ -39,17 +35,16 @@ const removeFile=(path)=>{
         }
     })
 }
-
-
-const saveToDB=async(vehicles, md5)=>{
+const saveToDB=async(vehicles, fileId)=>{
     let count=0;
     for(const row in vehicles )
     {
-        let obj=new Vehicle(vehicles[row]);
-        obj.file_md5=md5;
-        obj.rejection_percentage=vehicles[row].rejection_percentage.replace(/,/g, '.');
+        let obj=JSON.parse(JSON.stringify(vehicles[row]));
+        obj.file_id=fileId;
+        obj.rejection_percentage=vehicles[row].rejection_percentage.replace(/,/g, '.'); // replace , with . in number
         try{
-            await obj.save();
+
+            const objId=await insertVehicle(obj);
             count++;
         }catch(err)
         {
@@ -58,8 +53,11 @@ const saveToDB=async(vehicles, md5)=>{
     }
     return count;
 }
-
-// file handler request
+/** OK
+ * @route  POST /api/upload
+ * @desc    upload json file
+ * @access  public
+ */
 app.post('/api/upload',async (req,res)=>{
     try{
         if(!req.files)
@@ -72,22 +70,19 @@ app.post('/api/upload',async (req,res)=>{
         // check file type
         if(!fileType.includes('json'))
         {
-            return res.status(400).json({error:'Sorry not a JSON file'})
+            return res.status(400).json({error:'Sorry NOT a JSON file'})
         }
-        // check file duplicate
-        const findOne= await File.findOne({md5:md5});
+        // check file duplicated
+        const findOne= await findFileByMD5(md5);
         if(findOne)
         {
             return res.status(400).json({error:'File Duplicated'})
         }
-        // add new file
-        const newFile= new File({
-            createdAt:Date.now(),
+        const newFile= {
             md5:md5
-        });
-        await newFile.save((err,event)=>{
-            if (err) throw 'Cannot save new file';
-        });
+        }
+        // insert new file
+        const fileId=await insertFile(newFile);
         file.mv(path.join(__dirname,"files",file.name),(err)=>{
             if(err)
                 throw 'Cannot save new local file';
@@ -95,14 +90,15 @@ app.post('/api/upload',async (req,res)=>{
             const content=fs.readFileSync(path.join(__dirname,"files",file.name));
             let vehicles=JSON.parse(content);
             // save file into DB
-            saveToDB(vehicles,md5).then((count)=>{
-                console.log(count);
+            saveToDB(vehicles,fileId).then((count)=>{
                 // remove file from local storage
+                console.log(count);
                 removeFile(path.join(__dirname,"files",file.name));
                 return res.status(200).json({msg:"file added"})
             }).catch((err)=>{
-                // still remove file when failed
+                // remove file from local storage
                 removeFile(path.join(__dirname,"files",file.name));
+                removeJSON(md5); // allows the file can be re-uploaded
                 throw 'Cannot save new document';
             })
         });
@@ -114,31 +110,38 @@ app.post('/api/upload',async (req,res)=>{
     }
 })
 
+/** OK
+ * @route  GET /api/all
+ * @desc    show all records
+ * @access  public
+ */
 app.get("/api/all",async(req,res)=>{
     try{
-        const vehicles=await Vehicle.find({},{_id:0,__v:0}).sort({model_year:-1,make:1,model:1,rejection_percentage:1});
+        const vehicles=await findAllRecords();
         return res.status(200).json({vehicles_data:vehicles});
     }catch(err)
     {
+        console.log(err);
         return res.status(500).json({error:err})
 
     }
 })
 
+/** OK
+ * @route  GET /api?search=xxxx
+ * @desc    search by text
+ * @access  public
+ */
 app.get('/api',async(req,res)=>{
     try{
 
         const text=req.query.search;
         if(text)
         {
-            const data=await Vehicle.find({$text:{$search:text}},{score:{$meta:"textScore"}},{lean:true}).sort({score:{$meta:"textScore"},model_year:-1,make:1,model:1,rejection_percentage:1}).limit(50)
-            let wordNums=text.split(" ").length;
-            let filteredData=data.filter((e,id)=>e.score > wordNums); // exclude score less than words number
-            const formatedData=filteredData.map((e,id)=>{
+
+            const data=await textSearch(text.split(' ').join(" & "));
+            const formatedData=data.map((e,id)=>{
                 let newObj=JSON.parse(JSON.stringify(e));
-                delete newObj['_id'];
-                delete newObj['__v'];
-                delete newObj['score'];
                 return newObj
             })
             return res.status(200).json({vehicles_data:formatedData});

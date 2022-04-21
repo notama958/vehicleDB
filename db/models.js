@@ -72,7 +72,7 @@ Vehicle.belongsTo(File,{foreignKey:"file_id",foreignKeyConstraint:true});
 
 
 // sync all tables
-sequelize.sync({force:true}).then(async()=>{
+sequelize.sync().then(async()=>{
     const vectorName='vehicle_ts';
     const fields=['model_year','make','model','rejection_percentage','reason_1','reason_2','reason_3'];
     // start transaction
