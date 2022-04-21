@@ -100,17 +100,23 @@ const updateTable=(newData)=>{
 const fetchAllData=async()=>{
     setSpinner(true);
     try{
-        const res=await axios.get(`${URL}/api/all`);
-        //console.log(res);
-        const data=res.data.vehicles_data;
-        if(data)
+        const res=await fetch(`${URL}/api/all`);
+        const JSONdata=await res.json();
+        if(res.status == 200 )
         {
-            updateTable(data);
+            const data=JSONdata.vehicles_data;
+            if(data)
+            {
+                updateTable(data);
+            }
+        }
+        else{
+            throw JSONdata.error;
         }
 
     }catch(err)
     {
-        setNotiTimer(err.response.data.error)
+        setNotiTimer(err)
     }
     setSpinner(false);
 }
@@ -124,12 +130,16 @@ const inputHandler=(e)=>{
             if(keyword)
             {
                 // check for present
-                const res=await axios.get(`${URL}/api?search=${keyword}`)
+                const res=await fetch(`${URL}/api?search=${keyword}`)
+                const toJSON=await res.json();
                 if(res.status == 200)
                 {
-                    const data=res.data.vehicles_data;
+                    const data=toJSON.vehicles_data;
                     updateTable(data);
                     setSpinner(false);
+                }
+                else{
+                    throw toJSON.error;
                 }
             }
             else{
@@ -140,8 +150,8 @@ const inputHandler=(e)=>{
         {
             // set the noti box
             setSpinner(false);
-            setNotiTimer(err.response.data.error);
-            console.error(err.response.data.error);
+            setNotiTimer(err);
+            console.error(err);
         }
     })();
 }
@@ -158,22 +168,30 @@ const submitForm= async(e)=>{
                 'Content-Type':'multipart/form-data'
             }
         }
-        let body = new FormData();
-        body.append('uploadFile',file)
+        let formData = new FormData();
+        formData.append('uploadFile',file)
         setSpinner(true);
-        const res=await axios.post(`${URL}/api/upload`,body,config)
+        const res=await fetch(`${URL}/api/upload`,{
+            method:'POST',
+            body:formData,
+            headers: config
+        })
+        const toJSON=await res.json();
         if(res.status == 200)
         {
+
             // set success noti and fetch data
-            setNotiTimer(res.data.msg,'success');
+            setNotiTimer(toJSON.msg,'success');
             await fetchAllData();
+        }
+        else{
+            throw toJSON.error
         }
     }catch(err)
     {
         // set the noti box
         setSpinner(false);
-        //console.log(err.response);
-        setNotiTimer(err.response.data.error);
+        setNotiTimer(err);
     }
 }
 
